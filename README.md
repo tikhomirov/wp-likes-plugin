@@ -21,6 +21,7 @@
 
 ### Через Composer (рекомендуется)
 ```bash
+composer config repositories.tikhomirov-wp-likes-plugin git https://github.com/tikhomirov/wp-likes-plugin.git
 composer require tikhomirov/wp-likes-plugin
 ```
 
