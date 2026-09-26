@@ -1,15 +1,16 @@
 {
-  "name": "rwsite/wp-likes-plugin",
-  "description": "WordPress simple plugin for post likes.",
-  "minimum-stability": "stable",
-  "license": "proprietary",
+  "name": "tikhomirov/wp-likes-plugin",
+  "description": "Простой и быстрый плагин лайков для записей и страниц WordPress с поддержкой AJAX, тем рейтингов и защиты от повторного голосования через IP/Cookie.",
   "type": "wordpress-plugin",
+  "license": "GPL-3.0-or-later",
   "authors": [
     {
       "name": "Aleksei Tikhomirov",
-      "email": "alex@rwsite.ru"
+      "email": "alex@rwsite.ru",
+      "homepage": "https://rwsite.ru"
     }
   ],
   "require": {
+    "php": ">=7.4"
   }
 }
