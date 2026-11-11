@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Post Likes plugin
  * Description: WordPress simple plugin for post likes. Require font awesome. How to use: Add shortcode <code>[like]</code> in your theme, before post output.
- * Version: 1.0.2
+ * Version: 1.1.0
  * Text Domain: like
  * Domain Path: /languages
  * Author: Aleksey Tikhomirov
@@ -16,6 +16,7 @@
 namespace likes;
 
 define( 'LIKE_URL', plugin_dir_url( __FILE__ ) );
+define( 'LIKE_VERSION', '1.1.0' );
 
 require_once 'class-settings.php';
 require_once 'functions.php';
@@ -60,8 +61,8 @@ final class PostLike
 
     public function enqueue_scripts()
     {
-        wp_enqueue_style( 'likes', LIKE_URL . 'css/simple-likes-public.css' );
-        wp_enqueue_script( 'likes', LIKE_URL . 'js/simple-likes-public.js', ['jquery'], '0.5',false );
+        wp_enqueue_style( 'likes', LIKE_URL . 'css/simple-likes-public.css', [], LIKE_VERSION );
+        wp_enqueue_script( 'likes', LIKE_URL . 'js/simple-likes-public.js', ['jquery'], LIKE_VERSION, true );
 
         wp_localize_script( 'likes', 'simpleLikes', [
             'ajaxurl' => admin_url( 'admin-ajax.php' ),
@@ -80,18 +81,26 @@ final class PostLike
      */
     public function process_simple_like()
     {
-        $nonce = isset( $_REQUEST['nonce'] ) ? sanitize_text_field( $_REQUEST['nonce'] ) : 0;
-
-        if ( ! wp_verify_nonce( $nonce, 'simple-likes-nonce' )) {
-            exit( __( 'Not permitted', 'like' ) );
+        if ( strtoupper( (string) ( $_SERVER['REQUEST_METHOD'] ?? '' ) ) !== 'POST' ) {
+            status_header( 405 );
+            header( 'Allow: POST' );
+            wp_send_json_error( [ 'message' => __( 'Not permitted', 'like' ) ], 405 );
         }
 
-        // Test if javascript is disabled
-        $disabled = isset( $_REQUEST['disabled'] ) && $_REQUEST['disabled'] == true;
+        if ( $this->is_crawler_request() ) {
+            wp_send_json_error( [ 'message' => __( 'Not permitted', 'like' ) ], 403 );
+        }
+
+        $nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+
+        if ( ! wp_verify_nonce( $nonce, 'simple-likes-nonce' ) ) {
+            wp_send_json_error( [ 'message' => __( 'Not permitted', 'like' ) ], 403 );
+        }
+
         // Test if this is a comment
-        $is_comment = (isset( $_REQUEST['is_comment'] ) && $_REQUEST['is_comment'] == 1) ? 1 : 0;
+        $is_comment = ( isset( $_POST['is_comment'] ) && (string) $_POST['is_comment'] === '1' ) ? 1 : 0;
         // Base variables
-        $post_id    = (isset( $_REQUEST['post_id'] ) && is_numeric( $_REQUEST['post_id'] )) ? $_REQUEST['post_id'] : '';
+        $post_id    = ( isset( $_POST['post_id'] ) && is_numeric( $_POST['post_id'] ) ) ? (int) $_POST['post_id'] : 0;
 
         $result     = [];
         $post_users = null;
@@ -200,17 +209,23 @@ final class PostLike
 
         $response['count']   = $this->get_like_count( $like_count, $post_id );
         $response['testing'] = $is_comment;
-        if ($disabled) {
-            if ($is_comment == 1) {
-                wp_redirect( get_permalink( get_the_ID() ) );
-                exit();
-            } else {
-                wp_redirect( get_permalink( $post_id ) );
-                exit();
-            }
-        } else {
-            wp_send_json( $response );
+        wp_send_json( $response );
+    }
+
+    /**
+     * Crawler / obvious non-human User-Agent. Defence in depth: likes are POST-only,
+     * but a stolen nonce must still not count for known bots.
+     */
+    private function is_crawler_request(): bool
+    {
+        $ua = (string) ( $_SERVER['HTTP_USER_AGENT'] ?? '' );
+        if ( $ua === '' ) {
+            return true;
         }
+
+        $pattern = '/(?:googlebot|adsbot-google|google-inspectiontool|bingbot|msnbot|yandex(?:bot|images|mobile|media|webmaster|render)?|baiduspider|sogou|duckduckbot|applebot|amazonbot|semrushbot|ahrefsbot|dotbot|petalbot|bytespider|gptbot|chatgpt-user|claudebot|anthropic-ai|ccbot|claude-web|ia_archiver|mj12bot|blexbot|dataforseo|screaming frog|facebookexternalhit|facebot|twitterbot|slackbot|discordbot|telegrambot|whatsapp|linkedinbot|pinterest|crawler|spider|slurp|seek\.net)/i';
+
+        return (bool) preg_match( $pattern, $ua );
     }
 
     /**
@@ -253,6 +268,10 @@ final class PostLike
      */
     public function get_simple_likes_button( int $post_id, bool $is_comment = false): string
     {
+        if ( is_feed() ) {
+            return '';
+        }
+
         $nonce      = wp_create_nonce( 'simple-likes-nonce' ); // Security
         if ($is_comment) {
             $post_id_class = esc_attr( ' sl-comment-button-' . $post_id );
@@ -282,9 +301,13 @@ final class PostLike
             $icon  = $icon_empty;
         }
 
-        $output = '<span class="sl-wrapper"><a href="' . admin_url( 'admin-ajax.php?action=process_simple_like' . '&post_id=' . $post_id . '&nonce=' . $nonce . '&is_comment=' . $is_comment . '&disabled=true' ) .
-        '" class="sl-button' . $post_id_class . $class . $comment_class . '" data-nonce="' . $nonce . '" data-post-id="' . $post_id . '" data-iscomment="' . $is_comment . '" title="' . $title . '">'
-        . $icon . $count . '</a> ' . $loader . '</span>';
+        $output = '<span class="sl-wrapper"><a role="button" tabindex="0" rel="nofollow" class="sl-button'
+            . $post_id_class . $class . $comment_class
+            . '" data-nonce="' . esc_attr( $nonce )
+            . '" data-post-id="' . esc_attr( (string) $post_id )
+            . '" data-iscomment="' . esc_attr( $is_comment ? '1' : '' )
+            . '" title="' . esc_attr( $title ) . '">'
+            . $icon . $count . '</a> ' . $loader . '</span>';
 
         return $output;
     }
@@ -295,7 +318,12 @@ final class PostLike
      */
     public function get_post_likes($post = null):string
     {
-        return $this->get_simple_likes_button( $post ?? get_the_ID(), false );
+        $post_id = ( is_numeric( $post ) && (int) $post > 0 ) ? (int) $post : (int) get_the_ID();
+        if ( $post_id <= 0 ) {
+            return '';
+        }
+
+        return $this->get_simple_likes_button( $post_id, false );
     }
 
     /**

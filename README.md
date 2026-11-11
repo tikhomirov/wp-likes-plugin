@@ -15,8 +15,8 @@ Adds a lightweight AJAX-powered post liking and voting system to WordPress with 
 
 ## Features
 
-- **AJAX Liking:** Instant voting without page reloads.
-- **Spam Protection:** Cookie & IP restriction mechanisms.
+- **AJAX Liking:** Instant voting without page reloads. Likes are accepted only via POST; the button has no GET href, so crawlers cannot increment the counter.
+- **Spam Protection:** Cookie & IP restriction mechanisms, plus a crawler User-Agent block.
 
 ## Installation
 
@@ -44,6 +44,6 @@ composer require tikhomirov/wp-likes-plugin
 - **PHP:** от 7.4 до 8.3
 
 ### Возможности
-- AJAX-лайки для записей с защитой от повторного голосования.
+- AJAX-лайки для записей с защитой от повторного голосования. Лайк принимается только POST-запросом; у кнопки нет GET-ссылки, краулеры счётчик не увеличивают.
 
 **Установка:** подключите через Composer (VCS) или скачайте архив и активируйте в панели управления WordPress.
