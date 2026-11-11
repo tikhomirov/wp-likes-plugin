@@ -1,8 +1,9 @@
-/* Wrapper */
+/* Wrapper. The control is an <a role="button"> without href (JS POST only). */
 .sl-button {
     font-size: 1em;
     border-bottom: 0 !important;
     text-decoration: none !important;
+    cursor: pointer;
 }
 
 /* Colors */

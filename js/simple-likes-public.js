@@ -1,10 +1,15 @@
 (function ($) {
     'use strict';
 
+    $(document).on('keydown', '.sl-button', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            $(this).trigger('click');
+        }
+    });
+
     $(document).on('click', '.sl-button', function (e) {
         e.preventDefault();
-        console.log('like js');
-
         const button = $(this);
         const post_id = button.attr('data-post-id');
         const security = button.attr('data-nonce');
