@@ -15,8 +15,8 @@
 
 namespace likes;
 
-define( 'LIKE_URL', plugin_dir_url( __FILE__ ) );
-define( 'LIKE_VERSION', '1.1.0' );
+define('LIKE_URL', plugin_dir_url(__FILE__));
+define('LIKE_VERSION', '1.1.0');
 
 require_once 'class-settings.php';
 require_once 'functions.php';
@@ -24,55 +24,59 @@ require_once 'functions.php';
 final class PostLike
 {
     public static int $inst = 0;
+
     public array $settings;
+
     public const string SHORTCODE = 'like';
 
     public function __construct($settings = [])
     {
         self::$inst++;
-        $this->settings = !empty($settings) ? $settings : ['type' => '']; // stars
+        $this->settings = ! empty($settings) ? $settings : ['type' => '']; // stars
         $this->add_actions();
     }
 
-    public function add_actions(){
+    public function add_actions()
+    {
 
-        if(self::$inst !== 1) {
+        if (self::$inst !== 1) {
             return;
         }
 
-        add_action('init',  fn() =>
-            load_plugin_textdomain( 'like', false, dirname(plugin_basename(__FILE__)) . '/languages' )
+        add_action(
+            'init',
+            fn () => load_plugin_textdomain('like', false, dirname(plugin_basename(__FILE__)) . '/languages'),
         );
 
-        add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts'] );
-        add_shortcode(PostLike::SHORTCODE, [$this, 'get_post_likes']);
+        add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
+        add_shortcode(self::SHORTCODE, [$this, 'get_post_likes']);
 
-        add_action('wp_ajax_nopriv_process_simple_like', [$this, 'process_simple_like'] );
-        add_action('wp_ajax_process_simple_like', [$this, 'process_simple_like'] );
+        add_action('wp_ajax_nopriv_process_simple_like', [$this, 'process_simple_like']);
+        add_action('wp_ajax_process_simple_like', [$this, 'process_simple_like']);
 
         // show likes in profile
         add_action('show_user_profile', [$this, 'show_user_likes']);
         add_action('edit_user_profile', [$this, 'show_user_likes']);
 
-        if('stars' === $this->settings['type']){
+        if ($this->settings['type'] === 'stars') {
             $this->stars_settings();
         }
     }
 
     public function enqueue_scripts()
     {
-        wp_enqueue_style( 'likes', LIKE_URL . 'css/simple-likes-public.css', [], LIKE_VERSION );
-        wp_enqueue_script( 'likes', LIKE_URL . 'js/simple-likes-public.js', ['jquery'], LIKE_VERSION, true );
+        wp_enqueue_style('likes', LIKE_URL . 'css/simple-likes-public.css', [], LIKE_VERSION);
+        wp_enqueue_script('likes', LIKE_URL . 'js/simple-likes-public.js', ['jquery'], LIKE_VERSION, true);
 
-        wp_localize_script( 'likes', 'simpleLikes', [
-            'ajaxurl' => admin_url( 'admin-ajax.php' ),
-            'like'    => __( 'Like', 'like' ),
-            'unlike'  => __( 'Unlike', 'like' )
+        wp_localize_script('likes', 'simpleLikes', [
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'like'    => __('Like', 'like'),
+            'unlike'  => __('Unlike', 'like'),
         ]);
-        
-        if('stars' === $this->settings['type']){
-            wp_enqueue_script( 'stars-js', LIKE_URL . 'js/jquery.barrating.min.js');
-            wp_enqueue_style( 'stars-css', LIKE_URL . 'css/fontawesome-stars.css');
+
+        if ($this->settings['type'] === 'stars') {
+            wp_enqueue_script('stars-js', LIKE_URL . 'js/jquery.barrating.min.js');
+            wp_enqueue_style('stars-css', LIKE_URL . 'css/fontawesome-stars.css');
         }
     }
 
@@ -81,28 +85,28 @@ final class PostLike
      */
     public function process_simple_like()
     {
-        if ( strtoupper( (string) ( $_SERVER['REQUEST_METHOD'] ?? '' ) ) !== 'POST' ) {
-            status_header( 405 );
-            header( 'Allow: POST' );
-            wp_send_json_error( [ 'message' => __( 'Not permitted', 'like' ) ], 405 );
+        if (mb_strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
+            status_header(405);
+            header('Allow: POST');
+            wp_send_json_error(['message' => __('Not permitted', 'like')], 405);
         }
 
-        if ( $this->is_crawler_request() ) {
-            wp_send_json_error( [ 'message' => __( 'Not permitted', 'like' ) ], 403 );
+        if ($this->is_crawler_request()) {
+            wp_send_json_error(['message' => __('Not permitted', 'like')], 403);
         }
 
-        $nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+        $nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
 
-        if ( ! wp_verify_nonce( $nonce, 'simple-likes-nonce' ) ) {
-            wp_send_json_error( [ 'message' => __( 'Not permitted', 'like' ) ], 403 );
+        if (! wp_verify_nonce($nonce, 'simple-likes-nonce')) {
+            wp_send_json_error(['message' => __('Not permitted', 'like')], 403);
         }
 
         // Test if this is a comment
-        $is_comment = ( isset( $_POST['is_comment'] ) && (string) $_POST['is_comment'] === '1' ) ? 1 : 0;
+        $is_comment = (isset($_POST['is_comment']) && (string) $_POST['is_comment'] === '1') ? 1 : 0;
         // Base variables
-        $post_id    = ( isset( $_POST['post_id'] ) && is_numeric( $_POST['post_id'] ) ) ? (int) $_POST['post_id'] : 0;
+        $post_id = (isset($_POST['post_id']) && is_numeric($_POST['post_id'])) ? (int) $_POST['post_id'] : 0;
 
-        $result     = [];
+        $result = [];
         $post_users = null;
         $like_count = 0;
 
@@ -111,105 +115,105 @@ final class PostLike
         }
 
         $count = $is_comment ?
-        get_comment_meta( $post_id, '_comment_like_count',true ) :
-        get_post_meta( $post_id, "_post_like_count", true ); // like count
+        get_comment_meta($post_id, '_comment_like_count', true) :
+        get_post_meta($post_id, '_post_like_count', true); // like count
 
-        $count = (isset( $count ) && is_numeric( $count )) ? $count : 0;
+        $count = (isset($count) && is_numeric($count)) ? $count : 0;
 
-        if ( ! $this->already_liked( $post_id, $is_comment )) { // Like the post
+        if (! $this->already_liked($post_id, $is_comment)) { // Like the post
             if (is_user_logged_in()) { // user is logged in
-                $user_id    = get_current_user_id();
-                $post_users = $this->post_user_likes( $user_id, $post_id, $is_comment );
+                $user_id = get_current_user_id();
+                $post_users = $this->post_user_likes($user_id, $post_id, $is_comment);
                 if ($is_comment) {
                     // Update User & Comment comment_like_count
-                    $user_like_count = get_user_option( "_comment_like_count", $user_id );
-                    $user_like_count = (isset( $user_like_count ) && is_numeric( $user_like_count )) ? $user_like_count : 0;
-                    update_user_option( $user_id, "_comment_like_count", ++$user_like_count );
+                    $user_like_count = get_user_option('_comment_like_count', $user_id);
+                    $user_like_count = (isset($user_like_count) && is_numeric($user_like_count)) ? $user_like_count : 0;
+                    update_user_option($user_id, '_comment_like_count', ++$user_like_count);
                     if ($post_users) {
-                        update_comment_meta( $post_id, "_user_comment_liked", $post_users );
+                        update_comment_meta($post_id, '_user_comment_liked', $post_users);
                     }
                 } else {
                     // Update User & Post
-                    $user_like_count = get_user_option( "_user_like_count", $user_id );
-                    $user_like_count = (isset( $user_like_count ) && is_numeric( $user_like_count )) ? $user_like_count : 0;
-                    update_user_option( $user_id, "_user_like_count", ++$user_like_count );
+                    $user_like_count = get_user_option('_user_like_count', $user_id);
+                    $user_like_count = (isset($user_like_count) && is_numeric($user_like_count)) ? $user_like_count : 0;
+                    update_user_option($user_id, '_user_like_count', ++$user_like_count);
                     if ($post_users) {
-                        update_post_meta( $post_id, "_user_liked", $post_users );
+                        update_post_meta($post_id, '_user_liked', $post_users);
                     }
                 }
             } else { // user is anonymous
-                $user_ip    = $this->sl_get_ip();
-                $post_users = $this->post_ip_likes( $user_ip, $post_id, $is_comment );
+                $user_ip = $this->sl_get_ip();
+                $post_users = $this->post_ip_likes($user_ip, $post_id, $is_comment);
                 // Update Post
                 if ($post_users) {
                     if ($is_comment) {
-                        update_comment_meta( $post_id, "_user_comment_ip", $post_users );
+                        update_comment_meta($post_id, '_user_comment_ip', $post_users);
                     } else {
-                        update_post_meta( $post_id, "_user_ip", $post_users );
+                        update_post_meta($post_id, '_user_ip', $post_users);
                     }
                 }
             }
-            $like_count         = ++$count;
-            $response['status'] = "liked";
-            $response['icon']   = $this->get_liked_icon();
+            $like_count = ++$count;
+            $response['status'] = 'liked';
+            $response['icon'] = $this->get_liked_icon();
         } else { // Unlike the post
             if (is_user_logged_in()) { // user is logged in
-                $user_id    = get_current_user_id();
-                $post_users = $this->post_user_likes( $user_id, $post_id, $is_comment );
+                $user_id = get_current_user_id();
+                $post_users = $this->post_user_likes($user_id, $post_id, $is_comment);
                 // Update User
                 if ($is_comment) {
-                    $user_like_count = get_user_option( "_comment_like_count", $user_id );
-                    $user_like_count = (isset( $user_like_count ) && is_numeric( $user_like_count )) ? $user_like_count : 0;
+                    $user_like_count = get_user_option('_comment_like_count', $user_id);
+                    $user_like_count = (isset($user_like_count) && is_numeric($user_like_count)) ? $user_like_count : 0;
                     if ($user_like_count > 0) {
-                        update_user_option( $user_id, "_comment_like_count", --$user_like_count );
+                        update_user_option($user_id, '_comment_like_count', --$user_like_count);
                     }
                 } else {
-                    $user_like_count = get_user_option( "_user_like_count", $user_id );
-                    $user_like_count = (isset( $user_like_count ) && is_numeric( $user_like_count )) ? $user_like_count : 0;
+                    $user_like_count = get_user_option('_user_like_count', $user_id);
+                    $user_like_count = (isset($user_like_count) && is_numeric($user_like_count)) ? $user_like_count : 0;
                     if ($user_like_count > 0) {
-                        update_user_option( $user_id, '_user_like_count', --$user_like_count );
+                        update_user_option($user_id, '_user_like_count', --$user_like_count);
                     }
                 }
                 // Update Post
                 if ($post_users) {
-                    $uid_key = array_search( $user_id, $post_users );
-                    unset( $post_users[$uid_key] );
+                    $uid_key = array_search($user_id, $post_users);
+                    unset($post_users[$uid_key]);
                     if ($is_comment) {
-                        update_comment_meta( $post_id, "_user_comment_liked", $post_users );
+                        update_comment_meta($post_id, '_user_comment_liked', $post_users);
                     } else {
-                        update_post_meta( $post_id, "_user_liked", $post_users );
+                        update_post_meta($post_id, '_user_liked', $post_users);
                     }
                 }
             } else { // user is anonymous
-                $user_ip    = $this->sl_get_ip();
-                $post_users = $this->post_ip_likes( $user_ip, $post_id, $is_comment );
+                $user_ip = $this->sl_get_ip();
+                $post_users = $this->post_ip_likes($user_ip, $post_id, $is_comment);
                 // Update Post
                 if ($post_users) {
-                    $uip_key = array_search( $user_ip, $post_users );
-                    unset( $post_users[$uip_key] );
+                    $uip_key = array_search($user_ip, $post_users);
+                    unset($post_users[$uip_key]);
                     if ($is_comment) {
-                        update_comment_meta( $post_id, "_user_comment_ip", $post_users );
+                        update_comment_meta($post_id, '_user_comment_ip', $post_users);
                     } else {
-                        update_post_meta( $post_id, "_user_ip", $post_users );
+                        update_post_meta($post_id, '_user_ip', $post_users);
                     }
                 }
             }
-            $like_count         = ($count > 0) ? --$count : 0; // Prevent negative number
-            $response['status'] = "unliked";
-            $response['icon']   = $this->get_unliked_icon();
+            $like_count = ($count > 0) ? --$count : 0; // Prevent negative number
+            $response['status'] = 'unliked';
+            $response['icon'] = $this->get_unliked_icon();
         }
 
         if ($is_comment == 1) {
-            update_comment_meta( $post_id, "_comment_like_count", $like_count );
-            update_comment_meta( $post_id, "_comment_like_modified", date( 'Y-m-d H:i:s' ) );
+            update_comment_meta($post_id, '_comment_like_count', $like_count);
+            update_comment_meta($post_id, '_comment_like_modified', date('Y-m-d H:i:s'));
         } else {
-            update_post_meta( $post_id, "_post_like_count", $like_count );
-            update_post_meta( $post_id, "_post_like_modified", date( 'Y-m-d H:i:s' ) );
+            update_post_meta($post_id, '_post_like_count', $like_count);
+            update_post_meta($post_id, '_post_like_modified', date('Y-m-d H:i:s'));
         }
 
-        $response['count']   = $this->get_like_count( $like_count, $post_id );
+        $response['count'] = $this->get_like_count($like_count, $post_id);
         $response['testing'] = $is_comment;
-        wp_send_json( $response );
+        wp_send_json($response);
     }
 
     /**
@@ -218,45 +222,44 @@ final class PostLike
      */
     private function is_crawler_request(): bool
     {
-        $ua = (string) ( $_SERVER['HTTP_USER_AGENT'] ?? '' );
-        if ( $ua === '' ) {
+        $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+        if ($ua === '') {
             return true;
         }
 
         $pattern = '/(?:googlebot|adsbot-google|google-inspectiontool|bingbot|msnbot|yandex(?:bot|images|mobile|media|webmaster|render)?|baiduspider|sogou|duckduckbot|applebot|amazonbot|semrushbot|ahrefsbot|dotbot|petalbot|bytespider|gptbot|chatgpt-user|claudebot|anthropic-ai|ccbot|claude-web|ia_archiver|mj12bot|blexbot|dataforseo|screaming frog|facebookexternalhit|facebot|twitterbot|slackbot|discordbot|telegrambot|whatsapp|linkedinbot|pinterest|crawler|spider|slurp|seek\.net)/i';
 
-        return (bool) preg_match( $pattern, $ua );
+        return (bool) preg_match($pattern, $ua);
     }
 
     /**
      * Utility to test if the post is already liked
-     *
-     * @param int $post_id
-     * @param bool $is_comment
-     *
-     * @return bool
      */
-    public function already_liked(int $post_id, bool $is_comment):bool
+    public function already_liked(int $post_id, bool $is_comment): bool
     {
         $post_users = null;
-        $user_id    = null;
+        $user_id = null;
         if (is_user_logged_in()) { // user is logged in
-            $user_id         = get_current_user_id();
-            $post_meta_users = $is_comment ? get_comment_meta( $post_id,
-                "_user_comment_liked" ) : get_post_meta( $post_id, "_user_liked" );
-            if (count( $post_meta_users ) != 0) {
+            $user_id = get_current_user_id();
+            $post_meta_users = $is_comment ? get_comment_meta(
+                $post_id,
+                '_user_comment_liked',
+            ) : get_post_meta($post_id, '_user_liked');
+            if (count($post_meta_users) != 0) {
                 $post_users = $post_meta_users[0];
             }
         } else { // user is anonymous
-            $user_id         = $this->sl_get_ip();
-            $post_meta_users = $is_comment ? get_comment_meta( $post_id,
-                "_user_comment_ip" ) : get_post_meta( $post_id, "_user_ip" );
-            if (count( $post_meta_users ) != 0) { // meta exists, set up values
+            $user_id = $this->sl_get_ip();
+            $post_meta_users = $is_comment ? get_comment_meta(
+                $post_id,
+                '_user_comment_ip',
+            ) : get_post_meta($post_id, '_user_ip');
+            if (count($post_meta_users) != 0) { // meta exists, set up values
                 $post_users = $post_meta_users[0];
             }
         }
 
-        if (is_array( $post_users ) && in_array( $user_id, $post_users )) {
+        if (is_array($post_users) && in_array($user_id, $post_users)) {
             return true;
         }
 
@@ -266,80 +269,79 @@ final class PostLike
     /**
      * Output the like button
      */
-    public function get_simple_likes_button( int $post_id, bool $is_comment = false): string
+    public function get_simple_likes_button(int $post_id, bool $is_comment = false): string
     {
-        if ( is_feed() ) {
+        if (is_feed()) {
             return '';
         }
 
-        $nonce      = wp_create_nonce( 'simple-likes-nonce' ); // Security
+        $nonce = wp_create_nonce('simple-likes-nonce'); // Security
         if ($is_comment) {
-            $post_id_class = esc_attr( ' sl-comment-button-' . $post_id );
-            $comment_class = esc_attr( ' sl-comment' );
-            $like_count    = get_comment_meta( $post_id, "_comment_like_count", true );
-            $like_count    = (isset( $like_count ) && is_numeric( $like_count )) ? $like_count : 0;
+            $post_id_class = esc_attr(' sl-comment-button-' . $post_id);
+            $comment_class = esc_attr(' sl-comment');
+            $like_count = get_comment_meta($post_id, '_comment_like_count', true);
+            $like_count = (isset($like_count) && is_numeric($like_count)) ? $like_count : 0;
         } else {
-            $post_id_class = esc_attr( ' sl-button-' . $post_id );
-            $comment_class = esc_attr( '' );
-            $like_count    = get_post_meta( $post_id, "_post_like_count", true );
-            $like_count    = (isset( $like_count ) && is_numeric( $like_count )) ? $like_count : 0;
+            $post_id_class = esc_attr(' sl-button-' . $post_id);
+            $comment_class = esc_attr('');
+            $like_count = get_post_meta($post_id, '_post_like_count', true);
+            $like_count = (isset($like_count) && is_numeric($like_count)) ? $like_count : 0;
         }
 
-        $count      = $this->get_like_count( $like_count, $post_id );
+        $count = $this->get_like_count($like_count, $post_id);
         $icon_empty = $this->get_unliked_icon();
-        $icon_full  = $this->get_liked_icon();
+        $icon_full = $this->get_liked_icon();
         // Loader
         $loader = '<span id="sl-loader"></span>';
         // Liked/Unliked Variables
-        if ($this->already_liked( $post_id, $is_comment )) {
-            $class = esc_attr( ' liked' );
-            $title = __( 'Unlike', 'like' );
-            $icon  = $icon_full;
+        if ($this->already_liked($post_id, $is_comment)) {
+            $class = esc_attr(' liked');
+            $title = __('Unlike', 'like');
+            $icon = $icon_full;
         } else {
             $class = '';
-            $title = __( 'Like', 'like' );
-            $icon  = $icon_empty;
+            $title = __('Like', 'like');
+            $icon = $icon_empty;
         }
 
         $output = '<span class="sl-wrapper"><a role="button" tabindex="0" rel="nofollow" class="sl-button'
             . $post_id_class . $class . $comment_class
-            . '" data-nonce="' . esc_attr( $nonce )
-            . '" data-post-id="' . esc_attr( (string) $post_id )
-            . '" data-iscomment="' . esc_attr( $is_comment ? '1' : '' )
-            . '" title="' . esc_attr( $title ) . '">'
+            . '" data-nonce="' . esc_attr($nonce)
+            . '" data-post-id="' . esc_attr((string) $post_id)
+            . '" data-iscomment="' . esc_attr($is_comment ? '1' : '')
+            . '" title="' . esc_attr($title) . '">'
             . $icon . $count . '</a> ' . $loader . '</span>';
 
         return $output;
     }
 
-
     /**
      * Processes shortcode to manually add the button to posts
      */
-    public function get_post_likes($post = null):string
+    public function get_post_likes($post = null): string
     {
-        $post_id = ( is_numeric( $post ) && (int) $post > 0 ) ? (int) $post : (int) get_the_ID();
-        if ( $post_id <= 0 ) {
+        $post_id = (is_numeric($post) && (int) $post > 0) ? (int) $post : (int) get_the_ID();
+        if ($post_id <= 0) {
             return '';
         }
 
-        return $this->get_simple_likes_button( $post_id, false );
+        return $this->get_simple_likes_button($post_id, false);
     }
 
     /**
      * @return array
      */
-    public function post_user_likes( int $user_id, int $post_id, bool $is_comment)
+    public function post_user_likes(int $user_id, int $post_id, bool $is_comment)
     {
-        $post_users      = [];
-        $post_meta_users = $is_comment ? get_comment_meta( $post_id,"_user_comment_liked" ) : get_post_meta( $post_id, "_user_liked" );
-        if (count( $post_meta_users ) != 0) {
+        $post_users = [];
+        $post_meta_users = $is_comment ? get_comment_meta($post_id, '_user_comment_liked') : get_post_meta($post_id, '_user_liked');
+        if (count($post_meta_users) != 0) {
             $post_users = $post_meta_users[0];
         }
-        if ( ! is_array( $post_users )) {
+        if (! is_array($post_users)) {
             $post_users = [];
         }
-        if ( ! in_array( $user_id, $post_users )) {
+        if (! in_array($user_id, $post_users)) {
             $post_users['user-' . $user_id] = $user_id;
         }
 
@@ -348,19 +350,19 @@ final class PostLike
 
     public function post_ip_likes($user_ip, $post_id, bool $is_comment)
     {
-        $post_users      = [];
-        $post_meta_users = $is_comment ? get_comment_meta( $post_id,'_user_comment_ip' ) : get_post_meta( $post_id, '_user_ip' );
+        $post_users = [];
+        $post_meta_users = $is_comment ? get_comment_meta($post_id, '_user_comment_ip') : get_post_meta($post_id, '_user_ip');
 
         // Retrieve post information
-        if (count( $post_meta_users ) !== 0) {
+        if (count($post_meta_users) !== 0) {
             $post_users = $post_meta_users[0];
         }
 
-        if ( ! is_array( $post_users )) {
+        if (! is_array($post_users)) {
             $post_users = [];
         }
 
-        if ( ! in_array($user_ip, $post_users, true)) {
+        if (! in_array($user_ip, $post_users, true)) {
             $post_users['ip-' . $user_ip] = $user_ip;
         }
 
@@ -369,15 +371,16 @@ final class PostLike
 
     public function sl_get_ip()
     {
-        if ( ! empty( $_SERVER['HTTP_CLIENT_IP'] )) {
+        if (! empty($_SERVER['HTTP_CLIENT_IP'])) {
             $ip = $_SERVER['HTTP_CLIENT_IP'];
-        } elseif ( ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] )) {
+        } elseif (! empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
             $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
         } else {
-            $ip = (isset( $_SERVER['REMOTE_ADDR'] )) ? $_SERVER['REMOTE_ADDR'] : '0.0.0.0';
+            $ip = (isset($_SERVER['REMOTE_ADDR'])) ? $_SERVER['REMOTE_ADDR'] : '0.0.0.0';
         }
 
-        $ip = filter_var( $ip, FILTER_VALIDATE_IP );
+        $ip = filter_var($ip, FILTER_VALIDATE_IP);
+
         return ($ip === false) ? '0.0.0.0' : $ip;
     }
 
@@ -397,25 +400,27 @@ final class PostLike
      * "M" if one million or greater,
      * and "B" if one billion or greater (unlikely).
      * $precision = how many decimal points to display (1.25K)
+     *
      * @since    0.5
      */
     public function sl_format_count($number)
     {
         $precision = 2;
         if ($number >= 1000 && $number < 1000000) {
-            $formatted = number_format( $number / 1000, $precision ) . 'K';
+            $formatted = number_format($number / 1000, $precision) . 'K';
         } elseif ($number >= 1000000 && $number < 1000000000) {
-            $formatted = number_format( $number / 1000000, $precision ) . 'M';
+            $formatted = number_format($number / 1000000, $precision) . 'M';
         } elseif ($number >= 1000000000) {
-            $formatted = number_format( $number / 1000000000, $precision ) . 'B';
+            $formatted = number_format($number / 1000000000, $precision) . 'B';
         } else {
             $formatted = $number; // Number is less than 1000
         }
 
-        return str_replace( '.00', '', $formatted );
+        return str_replace('.00', '', $formatted);
     }
 
-    public function stars_settings(){
+    public function stars_settings()
+    {
         add_action('wp_head', [$this, 'stars_script'], 99);
     }
 
@@ -432,36 +437,37 @@ final class PostLike
         <?php
     }
 
-    public function get_like_count($like_count, $post_id):string
+    public function get_like_count($like_count, $post_id): string
     {
-        if (is_numeric( $like_count ) && $like_count > 0) {
-            $number = $this->sl_format_count( $like_count );
+        if (is_numeric($like_count) && $like_count > 0) {
+            $number = $this->sl_format_count($like_count);
         } else {
-            $number = __( 'Like', 'like' );
+            $number = __('Like', 'like');
         }
         $count = '<span class="sl-count">' . $number . '</span>';
 
-        if('stars' === $this->settings['type']){
+        if ($this->settings['type'] === 'stars') {
             $count = '<span class="like-stars">' . $this->view_stars($post_id) . '</span>';
         }
 
         return $count;
     }
 
-    private function view_stars($post_id){
+    private function view_stars($post_id)
+    {
         $rating = 5;
         ?>
         <input type="hidden" name="rating" id="rating" value="<?php echo $rating; ?>" />
         <ul onMouseOut="resetRating(<?php echo $post_id; ?>);">
           <?php
-          for($i=1;$i<=5;$i++):
+          for ($i = 1; $i <= 5; $i++) {
               $selected = '';
-              if( $i <= $rating) {
-                $selected = 'selected';
+              if ($i <= $rating) {
+                  $selected = 'selected';
               }
               ?>
               <li class='<?php echo $selected; ?>' onmouseover="highlightStar(this,<?php echo $post_id; ?>);" onmouseout="removeHighlight(<?php echo $post_id; ?>);" onClick="addRating(this,<?php echo $post_id; ?>);">&#9733;</li>
-          <?php endfor;  ?>
+          <?php }  ?>
         <ul>
         <?php
 
@@ -469,43 +475,42 @@ final class PostLike
 
     /**
      * User Profile Likes List
-     *
-     * @param $user
      */
     public function show_user_likes($user)
     {
         ?>
         <table class="form-table">
             <tr>
-                <th><label for="user_likes"><?php _e( 'You Likes:', 'like' ); ?></label></th>
+                <th><label for="user_likes"><?php _e('You Likes:', 'like'); ?></label></th>
                 <td>
                     <?php
-                    $types      = get_post_types( ['public' => true] );
-                    $args       = [
-                        'numberposts' => -1,
-                        'post_type'   => $types,
-                        'meta_query'  => [
-                            [
-                                'key'     => '_user_liked',
-                                'value'   => $user->ID,
-                                'compare' => 'LIKE'
-                            ]
-                        ]
-                    ];
-                    $sep        = '';
-                    $like_query = new \WP_Query( $args );
-                    if ($like_query->have_posts()) : ?>
+                    $types = get_post_types(['public' => true]);
+        $args = [
+            'numberposts' => -1,
+            'post_type'   => $types,
+            'meta_query'  => [
+                [
+                    'key'     => '_user_liked',
+                    'value'   => $user->ID,
+                    'compare' => 'LIKE',
+                ],
+            ],
+        ];
+        $sep = '';
+        $like_query = new \WP_Query($args);
+        if ($like_query->have_posts()) { ?>
                         <details>
                             <summary><?= __('List of posts with titles') ?></summary>
-                            <?php while ($like_query->have_posts()) : ?>
-                                <?php $like_query->the_post(); echo $sep; ?>
+                            <?php while ($like_query->have_posts()) { ?>
+                                <?php $like_query->the_post();
+                                echo $sep; ?>
                                 <a href="<?php the_permalink(); ?>" title="<?php the_title_attribute(); ?>"><?php the_title(); ?></a>
                                 <?php $sep = ' &middot; ';
-                            endwhile; ?>
+                            } ?>
                         </details>
-                    <?php else : ?>
-                        <p><?php _e( 'You do not like anything yet.', 'like' ); ?></p>
-                    <?php endif; ?>
+                    <?php } else { ?>
+                        <p><?php _e('You do not like anything yet.', 'like'); ?></p>
+                    <?php } ?>
 
                     <?php wp_reset_postdata(); ?>
                 </td>
